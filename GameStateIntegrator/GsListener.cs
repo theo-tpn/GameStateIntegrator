@@ -23,7 +23,21 @@ namespace GameStateIntegrator
 
         };
 
+        private Subject<Provider> _providerSubject = new();
+        private Subject<Player> _playerSubject = new();
+        private Subject<Bomb> _bombSubject = new();
+        private Subject<Round> _roundSubject = new();
+        private Subject<PhaseInfo> _phaseSubject = new();
+        private Subject<Map> _mapSubject = new();
+
         public bool IsRunning { get; private set; }
+
+        public IObservable<Provider> ProviderObserver => _providerSubject.AsObservable();
+        public IObservable<Player> PlayerObserver => _playerSubject.AsObservable();
+        public IObservable<Bomb> BombObserver => _bombSubject.AsObservable();
+        public IObservable<Round> RoundObserver => _roundSubject.AsObservable();
+        public IObservable<PhaseInfo> PhaseObserver => _phaseSubject.AsObservable();
+        public IObservable<Map> MapObserver => _mapSubject.AsObservable();
 
         public GsListener()
         {
@@ -125,6 +139,29 @@ namespace GameStateIntegrator
                 try
                 {
                     var propObj = JsonSerializer.Deserialize(value.ToJsonString(), propType);
+
+                    switch (propObj)
+                    {
+                        case Provider provider:
+                            _providerSubject.OnNext(provider);
+                            break;
+                        case Player player:
+                            _playerSubject.OnNext(player);
+                            break;
+                        case Bomb bomb:
+                            _bombSubject.OnNext(bomb);
+                            break;
+                        case Round round:
+                            _roundSubject.OnNext(round);
+                            break;
+                        case PhaseInfo phaseInfo:
+                            _phaseSubject.OnNext(phaseInfo);
+                            break;
+                        case Map map:
+                            _mapSubject.OnNext(map);
+                            break;
+                    }
+                    
                 }
                 catch (Exception)
                 {
