@@ -12,12 +12,14 @@ namespace GameStateIntegrator
         private HttpListener? _httpListener;
         private AutoResetEvent _waitForConnection = new(false);
 
+        private int _listeningPort;
+
         private static Dictionary<string, Type> _propertiesTypeMap = new()
         {
             { "provider", typeof(Provider) },
             { "player", typeof(Player) },
             { "bomb", typeof(Bomb) },
-            { "round", typeof (Round) },
+            { "round", typeof(Round) },
             { "phase", typeof(PhaseInfo) },
             { "map", typeof(Map) }
 
@@ -39,14 +41,15 @@ namespace GameStateIntegrator
         public IObservable<PhaseInfo> PhaseObserver => _phaseSubject.AsObservable();
         public IObservable<Map> MapObserver => _mapSubject.AsObservable();
 
-        public GsListener()
+        public GsListener(int port)
         {
+            _listeningPort = port;
         }
 
         public bool Start()
         {
             _httpListener = new HttpListener();
-            _httpListener.Prefixes.Add("http://localhost:3000/");
+            _httpListener.Prefixes.Add($"http://localhost:{_listeningPort}/");
 
             _httpListener.Start();
 
@@ -100,7 +103,6 @@ namespace GameStateIntegrator
             }
             catch (ObjectDisposedException)
             {
-                // Listener was Closed due to call of Stop();
                 return;
             }
             finally
@@ -109,6 +111,9 @@ namespace GameStateIntegrator
             }
 
             var request = context.Request;
+            if (request.HttpMethod != "POST")
+                return;
+
             string jsonContent;
 
             using (var inputStream = request.InputStream)
@@ -126,13 +131,21 @@ namespace GameStateIntegrator
 
         private void ProcessIncomingContent(string content)
         {
-            var r = JsonNode.Parse(content)?.AsObject();
-            if (r == null)
-                return;
-
-            foreach(var (propName, propType) in _propertiesTypeMap)
+            JsonObject? r;
+            try
             {
-                if(!r.TryGetPropertyValue(propName, out var value))
+                r = JsonNode.Parse(content)?.AsObject();
+                if (r == null)
+                    return;
+            }
+            catch (Exception)
+            {
+                return;
+            }
+
+            foreach (var (propName, propType) in _propertiesTypeMap)
+            {
+                if (!r.TryGetPropertyValue(propName, out var value))
                     continue;
                 if (value == null)
                     continue;
@@ -161,7 +174,6 @@ namespace GameStateIntegrator
                             _mapSubject.OnNext(map);
                             break;
                     }
-                    
                 }
                 catch (Exception)
                 {
@@ -169,7 +181,6 @@ namespace GameStateIntegrator
                 }
 
             }
-
         }
     }
 }
