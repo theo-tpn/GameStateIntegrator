@@ -2,7 +2,7 @@
 
 namespace GameStateIntegrator.Entities
 {
-    public class PhaseCountdown
+    public class PhaseInfo
     {
         [JsonPropertyName("phase")]
         public string? Phase { get; set; }

@@ -1,8 +1,7 @@
-﻿using Microsoft.AspNetCore;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
+﻿using GameStateIntegrator.Entities;
 using System.Net;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -10,11 +9,21 @@ namespace GameStateIntegrator
 {
     public class GsListener
     {
-        public bool IsRunning { get; private set; }
-
-        private AutoResetEvent _waitForConnection = new(false);
         private HttpListener? _httpListener;
+        private AutoResetEvent _waitForConnection = new(false);
 
+        private static Dictionary<string, Type> _propertiesTypeMap = new()
+        {
+            { "provider", typeof(Provider) },
+            { "player", typeof(Player) },
+            { "bomb", typeof(Bomb) },
+            { "round", typeof (Round) },
+            { "phase", typeof(PhaseInfo) },
+            { "map", typeof(Map) }
+
+        };
+
+        public bool IsRunning { get; private set; }
 
         public GsListener()
         {
@@ -54,7 +63,7 @@ namespace GameStateIntegrator
 
         public void Run()
         {
-            while(IsRunning)
+            while (IsRunning)
             {
                 _httpListener?.BeginGetContext(ReceiveGameState, _httpListener);
                 _waitForConnection.WaitOne();
@@ -103,10 +112,27 @@ namespace GameStateIntegrator
 
         private void ProcessIncomingContent(string content)
         {
-            dynamic r = JsonNode.Parse(content);
-            var o = JsonSerializer.Deserialize<dynamic>(content);
+            var r = JsonNode.Parse(content)?.AsObject();
+            if (r == null)
+                return;
 
-            Console.WriteLine(r.provider.name);
+            foreach(var (propName, propType) in _propertiesTypeMap)
+            {
+                if(!r.TryGetPropertyValue(propName, out var value))
+                    continue;
+                if (value == null)
+                    continue;
+                try
+                {
+                    var propObj = JsonSerializer.Deserialize(value.ToJsonString(), propType);
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+            }
+
         }
     }
 }
